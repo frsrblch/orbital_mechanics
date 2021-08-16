@@ -69,8 +69,8 @@ pub struct Eccentricity(f64);
 impl Eccentricity {
     #[inline]
     pub fn new(value: f64) -> Self {
-        // I don't know whether my equations work for high eccentricities
-        if value < 0.0 || value > 0.9 {
+        // I don't know whether these equations work for high eccentricities
+        if !(0.0..0.9).contains(&value) {
             panic!("Invalid eccentricity: {}", value);
         }
 
