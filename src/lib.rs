@@ -28,9 +28,9 @@ impl EllipticalOrbit {
     }
 
     #[inline]
-    pub fn position(&self, time: TimeFloat) -> Distance {
+    pub fn distance(&self, time: TimeFloat) -> Distance {
         if self.eccentricity.0 == 0.0 {
-            circular_orbit_position(
+            circular_orbit_distance(
                 time,
                 self.period,
                 self.semi_major_axis,
@@ -58,8 +58,8 @@ pub struct CircularOrbit {
 
 impl CircularOrbit {
     #[inline]
-    pub fn position(&self, time: TimeFloat) -> Distance {
-        circular_orbit_position(time, self.period, self.radius, self.offset)
+    pub fn distance(&self, time: TimeFloat) -> Distance {
+        circular_orbit_distance(time, self.period, self.radius, self.offset)
     }
 }
 
@@ -260,7 +260,7 @@ pub fn orbital_period(semi_major_axis: Length, parent_mass: Mass) -> Duration {
 }
 
 #[inline]
-fn circular_orbit_position(
+fn circular_orbit_distance(
     time: TimeFloat,
     period: Duration,
     radius: Length,
