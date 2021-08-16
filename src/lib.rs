@@ -7,6 +7,62 @@ use std::ops::{Add, Mul, Sub};
 pub const GRAVITY_CONST: f64 = 6.674_08e-11;
 pub const GRAVITY_CONST_SQRT: f64 = 8.169_504_268_926e-6;
 
+#[derive(Debug, Copy, Clone)]
+pub struct EllipticalOrbit {
+    pub period: Duration,
+    pub semi_major_axis: Length,
+    pub eccentricity: Eccentricity,
+    pub eccentricity_angle: Angle,
+    pub anomaly_offset: MeanAnomaly,
+}
+
+impl EllipticalOrbit {
+    pub fn circular(period: Duration, radius: Length, offset: Angle) -> Self {
+        Self {
+            period,
+            semi_major_axis: radius,
+            eccentricity: Default::default(),
+            eccentricity_angle: Default::default(),
+            anomaly_offset: MeanAnomaly(offset),
+        }
+    }
+
+    #[inline]
+    pub fn position(&self, time: TimeFloat) -> Distance {
+        if self.eccentricity.0 == 0.0 {
+            circular_orbit_position(
+                time,
+                self.period,
+                self.semi_major_axis,
+                self.anomaly_offset.0,
+            )
+        } else {
+            let mean_anomaly = MeanAnomaly::calculate(self.anomaly_offset, self.period, time);
+            let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
+            let true_anomaly = TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity);
+
+            let radius = radius(true_anomaly, self.eccentricity, self.semi_major_axis);
+            let angle = true_anomaly + self.eccentricity_angle;
+
+            Distance::from_angle_and_radius(angle, radius)
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct CircularOrbit {
+    period: Duration,
+    radius: Length,
+    offset: Angle,
+}
+
+impl CircularOrbit {
+    #[inline]
+    pub fn position(&self, time: TimeFloat) -> Distance {
+        circular_orbit_position(time, self.period, self.radius, self.offset)
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Eccentricity(f64);
 
@@ -203,62 +259,6 @@ pub fn orbital_period(semi_major_axis: Length, parent_mass: Mass) -> Duration {
     Duration::in_s(value)
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct KeplerOrbit {
-    pub period: Duration,
-    pub semi_major_axis: Length,
-    pub eccentricity: Eccentricity,
-    pub eccentricity_angle: Angle,
-    pub anomaly_offset: MeanAnomaly,
-}
-
-impl KeplerOrbit {
-    pub fn circular(period: Duration, radius: Length, offset: Angle) -> Self {
-        Self {
-            period,
-            semi_major_axis: radius,
-            eccentricity: Default::default(),
-            eccentricity_angle: Default::default(),
-            anomaly_offset: MeanAnomaly(offset),
-        }
-    }
-
-    #[inline]
-    pub fn position(&self, time: TimeFloat) -> Distance {
-        if self.eccentricity.0 == 0.0 {
-            circular_orbit_position(
-                time,
-                self.period,
-                self.semi_major_axis,
-                self.anomaly_offset.0,
-            )
-        } else {
-            let mean_anomaly = MeanAnomaly::calculate(self.anomaly_offset, self.period, time);
-            let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
-            let true_anomaly = TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity);
-
-            let radius = radius(true_anomaly, self.eccentricity, self.semi_major_axis);
-            let angle = true_anomaly + self.eccentricity_angle;
-
-            Distance::from_angle_and_radius(angle, radius)
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct CircularOrbit {
-    period: Duration,
-    radius: Length,
-    offset: Angle,
-}
-
-impl CircularOrbit {
-    #[inline]
-    pub fn position(&self, time: TimeFloat) -> Distance {
-        circular_orbit_position(time, self.period, self.radius, self.offset)
-    }
-}
-
 #[inline]
 fn circular_orbit_position(
     time: TimeFloat,
@@ -269,161 +269,6 @@ fn circular_orbit_position(
     let angle = Angle::TAU * (time / period) + offset;
     Distance::from_angle_and_radius(angle, radius)
 }
-
-//
-// impl World {
-//
-//     pub fn draw_body_orbit(
-//         &self,
-//         mesh_builder: &mut MeshBuilder,
-//         body: Id<Body>,
-//         color: Color,
-//         camera: &crate::cameras::Camera,
-//     ) -> Option<()> {
-//         let orbit = self.state.body.orbit.get_opt(body)?;
-//         self.draw_orbit(mesh_builder, *orbit, color, camera)
-//     }
-//
-//     pub fn draw_orbit(
-//         &self,
-//         mesh_builder: &mut MeshBuilder,
-//         orbit: Id<Orbit>,
-//         color: Color,
-//         camera: &crate::cameras::Camera,
-//     ) -> Option<()> {
-//         let system_view = &self.state.system_view;
-//         let is_on_screen = |p: &&Point| system_view.is_on_screen_point(**p);
-//
-//         let points = self.calculate_orbit_points(orbit, camera);
-//
-//         points.iter()
-//             .zip(points.iter().skip(1))
-//             .enumerate()
-//             .filter(|(_, (a, b))| is_on_screen(a) || is_on_screen(b))
-//             .for_each(|(i, (a, b))| {
-//                 let brightness = 1.0 - (i as f32 / TRAIL_POINT_COUNT as f32);
-//                 let points = &[*a, *b];
-//                 let color = Color::new(
-//                     color.r * brightness,
-//                     color.g * brightness,
-//                     color.b * brightness,
-//                     color.a,
-//                 );
-//                 let _ = mesh_builder.line(points, 0.5, color);
-//             });
-//
-//         Some(())
-//     }
-//
-//     fn calculate_orbit_points(
-//         &self,
-//         orbit: Id<Orbit>,
-//         camera: &crate::cameras::Camera,
-//     ) -> Vec<Point> {
-//         let system_view = &self.state.system_view;
-//         let orbit_params = &self.state.orbit.parameters[orbit];
-//         let parent_orbit = self.state.orbit.parent[orbit];
-//
-//         let parent_pos = parent_orbit
-//             .map(|p| self.calculate_absolute_position(p))
-//             .unwrap_or_else(Position::zero);
-//
-//         let end_time = self.state.time.get_game_time() + orbit_params.period * RENDER_ORBIT_FRACTION.ceil();
-//         let time_step = orbit_params.period / TRAIL_POINT_COUNT as f64;
-//
-//         (0..TRAIL_POINT_COUNT)
-//             .map(|i| {
-//                 let t = end_time - time_step * i as f64 * RENDER_ORBIT_FRACTION;
-//                 let p = calculate_relative_position(orbit_params, t) + parent_pos;
-//                 let px = camera.get_pixel_from_position(p, system_view);
-//                 get_point(px)
-//             })
-//             .collect()
-//     }
-//
-//     pub fn draw_if_child_orbit(
-//         &self,
-//         mesh_builder: &mut MeshBuilder,
-//         body: Id<Body>,
-//         color: Color,
-//         camera: &Camera,
-//         parent_orbit: Id<Orbit>,
-//     ) -> Option<()> {
-//         let orbit = self.state.body.orbit.get_opt(body)?;
-//         let orbit_parent = self.state.orbit.parent.get_opt(orbit)?;
-//
-//         if *orbit_parent == parent_orbit {
-//             self.draw_body_orbit(mesh_builder, body, color, camera);
-//         }
-//
-//         Some(())
-//     }
-//
-//     fn calculate_absolute_position(&self, orbit: Id<Orbit>) -> Position {
-//         calculate_absolute_position(
-//             orbit,
-//             &self.state.orbit.relative_pos,
-//             &self.state.orbit.parent,
-//         )
-//     }
-//
-//     pub fn calculate_absolute_velocity(&self, orbit: Id<Orbit>) -> Velocity {
-//         self.calculate_absolute_velocity_at_time(orbit, self.state.time.get_game_time())
-//     }
-//
-//     pub fn calculate_absolute_velocity_at_time(&self, orbit: Id<Orbit>, time: Time) -> Velocity {
-//         calculate_absolute_velocity(
-//             time,
-//             orbit,
-//             &self.state.orbit.parameters,
-//             &self.state.orbit.parent,
-//         )
-//     }
-// }
-//
-// fn calculate_absolute_position(
-//     orbit: Id<Orbit>,
-//     orbit_positions: &Component<Orbit, Position>,
-//     orbit_parent: &Component<Orbit, Option<Id<Orbit>>>,
-// ) -> Position {
-//     let mut position = Position::zero();
-//     let mut orbit = Some(orbit);
-//
-//     while let Some(o) = orbit {
-//         if let Some((rel_pos, parent)) = (orbit_positions, orbit_parent).get(o) {
-//             position += *rel_pos;
-//             orbit = *parent;
-//         }
-//     }
-//
-//     position
-// }
-//
-// fn calculate_relative_velocity(params: &OrbitParameters, time: Time) -> Velocity {
-//     let dt = Time::in_seconds(1.0);
-//     let p1 = calculate_relative_position(params, time);
-//     let p2 = calculate_relative_position(params, time + dt);
-//     (p2 - p1) / dt
-// }
-//
-// fn calculate_absolute_velocity(
-//     time: Time,
-//     orbit: Id<Orbit>,
-//     orbit_params: &Component<Orbit, OrbitParameters>,
-//     orbit_parent: &Component<Orbit, Option<Id<Orbit>>>,
-// ) -> Velocity {
-//     let mut velocity = Velocity::zero();
-//     let mut orbit = Some(orbit);
-//
-//     while let Some(o) = orbit {
-//         if let Some((params, parent)) = (orbit_params, orbit_parent).get(o) {
-//             velocity += calculate_relative_velocity(params, time);
-//             orbit = *parent;
-//         }
-//     }
-//
-//     velocity
-// }
 
 #[cfg(test)]
 mod test {
@@ -441,7 +286,7 @@ mod test {
 
     #[test]
     fn orbit_sizes() {
-        assert_eq!(40, std::mem::size_of::<KeplerOrbit>());
+        assert_eq!(40, std::mem::size_of::<EllipticalOrbit>());
         assert_eq!(24, std::mem::size_of::<CircularOrbit>());
     }
 }
