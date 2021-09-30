@@ -4,6 +4,8 @@ use std::ops::{Add, Mul, Sub};
 // TODO orbit positions to be refactored. Calculate orbit path rather than doing the full Keplerian calculation each step.
 // graph in Excel and consider the best way to approximate the calculation from precalculated values.
 
+pub mod coordinates;
+
 pub const GRAVITY_CONST: f64 = 6.674_08e-11;
 pub const GRAVITY_CONST_SQRT: f64 = 8.169_504_268_926e-6;
 
@@ -44,7 +46,20 @@ impl EllipticalOrbit {
             let radius = radius(true_anomaly, self.eccentricity, self.semi_major_axis);
             let angle = true_anomaly + self.eccentricity_angle;
 
-            Distance::from_angle_and_radius(angle, radius)
+            Distance::from_angle_and_magnitude(angle, radius)
+        }
+    }
+
+    #[inline]
+    pub fn radius(&self, time: TimeFloat) -> Length {
+        if self.eccentricity == Eccentricity::default() {
+            self.semi_major_axis
+        } else {
+            let mean_anomaly = MeanAnomaly::calculate(self.anomaly_offset, self.period, time);
+            let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
+            let true_anomaly = TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity);
+
+            radius(true_anomaly, self.eccentricity, self.semi_major_axis)
         }
     }
 }
@@ -267,7 +282,7 @@ fn circular_orbit_distance(
     offset: Angle,
 ) -> Distance {
     let angle = Angle::TAU * (time / period) + offset;
-    Distance::from_angle_and_radius(angle, radius)
+    Distance::from_angle_and_magnitude(angle, radius)
 }
 
 #[cfg(test)]
