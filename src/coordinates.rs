@@ -16,16 +16,6 @@ impl From<f64> for Phi {
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Theta(Angle);
 
-impl Theta {
-    pub(crate) fn fraction(fraction: f64, rotations: f64) -> Self {
-        Self::rotations(Phi::from(fraction), rotations)
-    }
-
-    pub(crate) fn rotations(phi: Phi, rotations: f64) -> Self {
-        Self(phi.0 * rotations)
-    }
-}
-
 impl Add<Angle> for Theta {
     type Output = Theta;
 
