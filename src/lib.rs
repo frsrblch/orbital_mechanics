@@ -5,6 +5,7 @@ use std::ops::Mul;
 // graph in Excel and consider the best way to approximate the calculation from precalculated values.
 
 pub mod coordinates;
+pub mod gen;
 
 #[derive(Debug, Copy, Clone)]
 pub struct EllipticalOrbit {
