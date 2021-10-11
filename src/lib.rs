@@ -1,13 +1,10 @@
-use physics_types::{Angle, Distance, Duration, Length, Mass, Squared, TimeFloat};
-use std::ops::{Add, Mul, Sub};
+use physics_types::{Angle, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat};
+use std::ops::Mul;
 
 // TODO orbit positions to be refactored. Calculate orbit path rather than doing the full Keplerian calculation each step.
 // graph in Excel and consider the best way to approximate the calculation from precalculated values.
 
 pub mod coordinates;
-
-pub const GRAVITY_CONST: f64 = 6.674_08e-11;
-pub const GRAVITY_CONST_SQRT: f64 = 8.169_504_268_926e-6;
 
 #[derive(Debug, Copy, Clone)]
 pub struct EllipticalOrbit {
@@ -15,47 +12,109 @@ pub struct EllipticalOrbit {
     pub semi_major_axis: Length,
     pub eccentricity: Eccentricity,
     pub eccentricity_angle: Angle,
-    pub anomaly_offset: Angle,
+    pub offset: Angle,
 }
 
 impl EllipticalOrbit {
+    #[inline]
+    pub fn new(
+        parent: Mass,
+        semi_major_axis: Length,
+        eccentricity: Eccentricity,
+        eccentricity_angle: Angle,
+        offset: Angle,
+    ) -> Self {
+        Self {
+            period: orbital_period(semi_major_axis, parent),
+            semi_major_axis,
+            eccentricity,
+            eccentricity_angle,
+            offset,
+        }
+    }
+
+    #[inline]
+    pub fn circular_from_parent(parent: Mass, radius: Length, offset: Angle) -> Self {
+        let period = orbital_period(radius, parent);
+        Self::circular(period, radius, offset)
+    }
+
+    #[inline]
     pub fn circular(period: Duration, radius: Length, offset: Angle) -> Self {
         Self {
             period,
             semi_major_axis: radius,
             eccentricity: Default::default(),
             eccentricity_angle: Default::default(),
-            anomaly_offset: offset,
+            offset,
         }
     }
 
     #[inline]
+    fn is_circular(&self) -> bool {
+        self.eccentricity == Eccentricity::default()
+    }
+
+    #[inline]
     pub fn distance(&self, time: TimeFloat) -> Distance {
-        if self.eccentricity.0 == 0.0 {
-            circular_orbit_distance(time, self.period, self.semi_major_axis, self.anomaly_offset)
+        self.polar(time).euclidean()
+    }
+
+    #[inline]
+    pub fn polar(&self, time: TimeFloat) -> Polar<Length> {
+        if self.is_circular() {
+            let angle = circular_orbit_angle(time, self.period, self.offset);
+            let radius = self.semi_major_axis;
+
+            Polar {
+                x: radius,
+                y: angle,
+            }
         } else {
-            let mean_anomaly = MeanAnomaly::calculate(self.anomaly_offset, self.period, time);
-            let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
-            let true_anomaly = TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity);
+            let true_anomaly = self.true_anomaly(time);
 
-            let radius = radius(true_anomaly, self.eccentricity, self.semi_major_axis);
-            let angle = true_anomaly + self.eccentricity_angle;
+            let angle = true_anomaly.0 + self.eccentricity_angle;
+            let radius = self.elliptical_radius(true_anomaly);
 
-            Distance::from_angle_and_magnitude(angle, radius)
+            Polar {
+                x: radius,
+                y: angle,
+            }
         }
     }
 
     #[inline]
     pub fn radius(&self, time: TimeFloat) -> Length {
-        if self.eccentricity == Eccentricity::default() {
+        if self.is_circular() {
             self.semi_major_axis
         } else {
-            let mean_anomaly = MeanAnomaly::calculate(self.anomaly_offset, self.period, time);
-            let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
-            let true_anomaly = TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity);
+            let true_anomaly = self.true_anomaly(time);
 
-            radius(true_anomaly, self.eccentricity, self.semi_major_axis)
+            self.elliptical_radius(true_anomaly)
         }
+    }
+
+    #[inline]
+    pub fn angle(&self, time: TimeFloat) -> Angle {
+        if self.is_circular() {
+            circular_orbit_angle(time, self.period, self.offset)
+        } else {
+            let true_anomaly = self.true_anomaly(time);
+            true_anomaly.0 + self.eccentricity_angle
+        }
+    }
+
+    #[inline]
+    fn true_anomaly(&self, time: TimeFloat) -> TrueAnomaly {
+        let mean_anomaly = MeanAnomaly::calculate(self.offset, self.period, time);
+        let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
+        TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity)
+    }
+
+    #[inline]
+    fn elliptical_radius(&self, true_anomaly: TrueAnomaly) -> Length {
+        self.semi_major_axis * (1.0 - self.eccentricity.squared())
+            / (1.0 + self.eccentricity * true_anomaly.0.cos())
     }
 }
 
@@ -68,6 +127,15 @@ pub struct CircularOrbit {
 
 impl CircularOrbit {
     #[inline]
+    pub fn from_parent(parent: Mass, radius: Length, offset: Angle) -> Self {
+        Self {
+            period: orbital_period(radius, parent),
+            radius,
+            offset,
+        }
+    }
+
+    #[inline]
     pub fn distance(&self, time: TimeFloat) -> Distance {
         circular_orbit_distance(time, self.period, self.radius, self.offset)
     }
@@ -77,7 +145,6 @@ impl CircularOrbit {
 pub struct Eccentricity(f64);
 
 impl Eccentricity {
-    #[inline]
     pub fn new(value: f64) -> Self {
         // I don't know whether these equations work for high eccentricities
         if !(0.0..0.9).contains(&value) {
@@ -97,24 +164,6 @@ impl Squared for Eccentricity {
     }
 }
 
-impl Sub<f64> for Eccentricity {
-    type Output = f64;
-
-    #[inline]
-    fn sub(self, rhs: f64) -> Self::Output {
-        self.0 - rhs
-    }
-}
-
-impl Sub<Eccentricity> for f64 {
-    type Output = f64;
-
-    #[inline]
-    fn sub(self, rhs: Eccentricity) -> Self::Output {
-        self - rhs.0
-    }
-}
-
 impl Mul<f64> for Eccentricity {
     type Output = f64;
 
@@ -124,136 +173,81 @@ impl Mul<f64> for Eccentricity {
     }
 }
 
-impl Mul<Eccentricity> for f64 {
-    type Output = f64;
-
-    #[inline]
-    fn mul(self, rhs: Eccentricity) -> Self::Output {
-        self * rhs.0
-    }
-}
-
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
-struct MeanAnomaly(pub Angle);
+struct MeanAnomaly(Angle);
 
 impl MeanAnomaly {
-    pub fn calculate(offset: Angle, orbital_period: Duration, time: TimeFloat) -> Self {
+    fn calculate(offset: Angle, orbital_period: Duration, time: TimeFloat) -> Self {
         let orbit_fraction = time / orbital_period;
         let angle = orbit_fraction * Angle::TAU + offset;
         MeanAnomaly(angle)
     }
-
-    pub fn sin(self) -> f64 {
-        self.0.sin()
-    }
-}
-
-impl Add<Angle> for MeanAnomaly {
-    type Output = Angle;
-
-    fn add(self, rhs: Angle) -> Self::Output {
-        self.0 + rhs
-    }
-}
-
-impl Add<MeanAnomaly> for Angle {
-    type Output = Angle;
-
-    fn add(self, rhs: MeanAnomaly) -> Self::Output {
-        self + rhs.0
-    }
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
-struct EccentricAnomaly(pub Angle);
+struct EccentricAnomaly(Angle);
 
 impl EccentricAnomaly {
-    const ITERATION_COUNT: u8 = 5;
+    const ITERATION_COUNT: u8 = 3;
 
-    pub fn calculate(mean_anomaly: MeanAnomaly, eccentricity: Eccentricity) -> Self {
+    fn calculate(mean_anomaly: MeanAnomaly, eccentricity: Eccentricity) -> Self {
         // set E_0 to an appropriate initial value
-        let ma_sin = mean_anomaly.sin();
+        let ma_sin = mean_anomaly.0.sin();
 
-        let mut ecc_anomaly = mean_anomaly
+        let mut ecc_anomaly = mean_anomaly.0
             + Angle::in_rad(
                 eccentricity * ma_sin
-                    / (1.0 - (mean_anomaly + Angle::in_rad(eccentricity.0)).sin() + ma_sin),
+                    / (1.0 - (mean_anomaly.0 + Angle::in_rad(eccentricity.0)).sin() + ma_sin),
             );
 
         // Newton-Raphson method
         for _ in 0..Self::ITERATION_COUNT {
-            let f = ecc_anomaly.value - eccentricity * ecc_anomaly.sin() - mean_anomaly.0.value;
-            let f_prime = 1.0 - eccentricity * ecc_anomaly.cos();
+            let (sin, cos) = ecc_anomaly.value.sin_cos();
+            let f = ecc_anomaly.value - eccentricity * sin - mean_anomaly.0.value;
+            let f_prime = 1.0 - eccentricity * cos;
             ecc_anomaly -= Angle::in_rad(f / f_prime);
         }
 
         EccentricAnomaly(ecc_anomaly)
     }
-
-    pub fn cos(self) -> f64 {
-        self.0.cos()
-    }
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
-struct TrueAnomaly(pub Angle);
-
-impl Add<Angle> for TrueAnomaly {
-    type Output = Angle;
-
-    fn add(self, rhs: Angle) -> Self::Output {
-        self.0 + rhs
-    }
-}
-
-impl Add<TrueAnomaly> for Angle {
-    type Output = Angle;
-
-    fn add(self, rhs: TrueAnomaly) -> Self::Output {
-        self + rhs.0
-    }
-}
+struct TrueAnomaly(Angle);
 
 impl TrueAnomaly {
-    pub fn calculate(eccentric_anomaly: EccentricAnomaly, eccentricity: Eccentricity) -> Self {
-        let cos = eccentric_anomaly.cos();
-        let anomaly = Angle::in_rad(((cos - eccentricity) / (1.0 - eccentricity * cos)).acos());
+    fn calculate(eccentric_anomaly: EccentricAnomaly, eccentricity: Eccentricity) -> Self {
+        let cos = eccentric_anomaly.0.cos();
+        let anomaly = Angle::in_rad(((cos - eccentricity.0) / (1.0 - eccentricity * cos)).acos());
         if eccentric_anomaly.0 % Angle::TAU > Angle::PI {
             TrueAnomaly(Angle::TAU - anomaly)
         } else {
             TrueAnomaly(anomaly)
         }
     }
-
-    pub fn cos(self) -> f64 {
-        self.0.cos()
-    }
-}
-
-fn radius(
-    true_anomaly: TrueAnomaly,
-    eccentricity: Eccentricity,
-    semi_major_axis: Length,
-) -> Length {
-    semi_major_axis * (1.0 - eccentricity.squared()) / (1.0 + eccentricity * true_anomaly.cos())
 }
 
 #[inline]
 pub fn orbital_period(semi_major_axis: Length, parent_mass: Mass) -> Duration {
+    const GRAVITY_CONST_SQRT: f64 = 8.169_504_268_926e-6;
     const MULTIPLIER: f64 = Angle::TAU.value / GRAVITY_CONST_SQRT;
     let value = MULTIPLIER * (semi_major_axis.value.powi(3) / parent_mass.value).sqrt();
     Duration::in_s(value)
 }
 
-#[inline]
 fn circular_orbit_distance(
     time: TimeFloat,
     period: Duration,
     radius: Length,
     offset: Angle,
 ) -> Distance {
-    let angle = Angle::TAU * (time / period) + offset;
+    let angle = circular_orbit_angle(time, period, offset);
     Distance::from_angle_and_magnitude(angle, radius)
+}
+
+#[inline]
+fn circular_orbit_angle(time: TimeFloat, period: Duration, offset: Angle) -> Angle {
+    Angle::TAU * (time / period) + offset
 }
 
 #[cfg(test)]
