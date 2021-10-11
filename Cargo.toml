@@ -11,7 +11,11 @@ rand = "^0.8"
 
 [dev-dependencies]
 criterion = "*"
+plotters = "0.3.1"
 
 [[bench]]
 name = "calc"
 harness = false
+
+[[example]]
+name = "plot"
