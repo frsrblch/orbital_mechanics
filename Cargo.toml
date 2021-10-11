@@ -7,3 +7,10 @@ edition = "2018"
 
 [dependencies]
 physics_types = { git = "https://github.com/frsrblch/physics_types" }
+
+[dev-dependencies]
+criterion = "*"
+
+[[bench]]
+name = "calc"
+harness = false
