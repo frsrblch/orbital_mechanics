@@ -49,7 +49,7 @@ fn calc(criterion: &mut Criterion) {
                 black_box(orbit.distance(t));
             })
         })
-        .bench_function("calc circle", |bench| {
+        .bench_function("circle", |bench| {
             bench.iter(|| black_box(circle.radius(t)));
         })
         .bench_function("approx", |bench| {
