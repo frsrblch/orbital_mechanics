@@ -1,10 +1,8 @@
 use physics_types::{Angle, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat};
 use std::ops::Mul;
 
-// TODO orbit positions to be refactored. Calculate orbit path rather than doing the full Keplerian calculation each step.
 // graph in Excel and consider the best way to approximate the calculation from precalculated values.
 
-pub mod coordinates;
 pub mod gen;
 
 #[derive(Debug, Copy, Clone)]
