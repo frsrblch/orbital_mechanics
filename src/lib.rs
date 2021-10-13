@@ -62,8 +62,8 @@ impl EllipticalOrbit {
             let radius = self.semi_major_axis;
 
             Polar {
-                x: radius,
-                y: angle,
+                magnitude: radius,
+                angle,
             }
         } else {
             let true_anomaly = self.true_anomaly(time);
@@ -72,8 +72,8 @@ impl EllipticalOrbit {
             let radius = self.elliptical_radius(true_anomaly);
 
             Polar {
-                x: radius,
-                y: angle,
+                magnitude: radius,
+                angle,
             }
         }
     }

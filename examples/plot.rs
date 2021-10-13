@@ -47,6 +47,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))?;
     }
 
+    let n = 2000usize;
+    let get_ma = |i: usize| i as f64 / n as f64;
+    let get_ta = |i: usize, e: f64| true_anomaly(e, get_ma(i));
+    let ma_iter = (0..=n).into_iter().map(get_ma);
+    let ta_iter = |e: f64| ma_iter.clone().map(move |ma| true_anomaly(e, ma));
+
+    for ta in 0..=20 {
+        let target = ta as f64 / 20.0;
+        chart.draw_series(LineSeries::new(
+            (0..=160).map(|f| f as f64 / 200.0).map(|e| {
+                let (i, ta_i) = ta_iter(e)
+                    .enumerate()
+                    .skip(1)
+                    .find(|(_, ta)| *ta >= target)
+                    .unwrap();
+
+                let ta_i0 = get_ta(i - 1, e);
+                let ma_i = get_ma(i);
+                let ma_i0 = get_ma(i - 1);
+
+                let ma_target = (target - ta_i0) / (ta_i - ta_i0) * (ma_i - ma_i0) + ma_i0;
+                (e, target, ma_target)
+            }),
+            &BLACK,
+        ))?;
+    }
+
     chart
         .configure_series_labels()
         .border_style(&BLACK)
