@@ -1,8 +1,28 @@
 use crate::calc::*;
-use physics_types::{Angle, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat};
+use pga::{motor, Bivector, Motor};
+use physics_types::{
+    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat,
+};
 
 pub mod calc;
 pub mod gen;
+
+/// Describes to rotation characteristics of an orbiting body
+/// The default value is a tidally-locked body that does not rotated relative to its parent
+#[derive(Debug, Default, Copy, Clone)]
+pub struct Rotation {
+    /// Rotation speed with respect to the stars
+    pub sidereal_speed: AngularSpeed,
+    /// The axis of rotation
+    pub axis: Bivector,
+}
+
+impl Rotation {
+    pub fn get_motor(&self, time: TimeFloat) -> Motor {
+        let rotations = self.sidereal_speed * time.value;
+        motor(self.axis, 0.0, rotations.value)
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct EllipticalOrbit {

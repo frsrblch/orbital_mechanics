@@ -8,6 +8,7 @@ edition = "2018"
 [dependencies]
 physics_types = { git = "https://github.com/frsrblch/physics_types" }
 rand = "^0.8"
+pga = { path = "C:/Users/Farseer/IdeaProjects/pga_old" }
 
 [dev-dependencies]
 criterion = "*"
