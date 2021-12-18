@@ -20,3 +20,6 @@ harness = false
 
 [[example]]
 name = "plot"
+
+[[example]]
+name = "to_txt"

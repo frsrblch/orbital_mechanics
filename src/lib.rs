@@ -1,11 +1,15 @@
 use crate::calc::*;
-use pga::{motor, Bivector, Motor};
+use ::pga::{motor, Bivector, Motor};
 use physics_types::{
     Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat,
 };
 
 pub mod calc;
 pub mod gen;
+
+mod pga {
+    pub use ::pga::*;
+}
 
 /// Describes to rotation characteristics of an orbiting body
 /// The default value is a tidally-locked body that does not rotated relative to its parent
