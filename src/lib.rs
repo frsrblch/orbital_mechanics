@@ -7,7 +7,7 @@ use physics_types::{
 pub mod calc;
 pub mod gen;
 
-mod pga {
+pub mod pga {
     pub use ::pga::*;
 }
 
