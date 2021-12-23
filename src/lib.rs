@@ -1,7 +1,7 @@
 use crate::calc::*;
-use ::pga::{motor, Bivector, Motor};
+use ::pga::{line, motor, origin, point, Bivector, Motor};
 use physics_types::{
-    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Squared, TimeFloat,
+    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Spherical, Squared, TimeFloat,
 };
 
 pub mod calc;
@@ -22,6 +22,24 @@ pub struct Rotation {
 }
 
 impl Rotation {
+    pub fn new(sidereal_day: Duration, tilt_angle: Angle, orientation_angle: Angle) -> Self {
+        let sidereal_speed = Angle::TAU / sidereal_day;
+
+        let p = Spherical {
+            magnitude: 1.0,
+            phi: tilt_angle,
+            theta: orientation_angle,
+        }
+        .vector();
+
+        let axis = line(origin(), point(p.x, p.y, p.z));
+
+        Rotation {
+            sidereal_speed,
+            axis,
+        }
+    }
+
     pub fn get_motor(&self, time: TimeFloat) -> Motor {
         let rotations = self.sidereal_speed * time.value;
         motor(self.axis, 0.0, rotations.value)
