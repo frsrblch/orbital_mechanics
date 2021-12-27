@@ -4,7 +4,7 @@ use super::*;
 pub struct MeanAnomaly(pub Angle);
 
 impl MeanAnomaly {
-    pub fn calculate(offset: Angle, orbital_period: Duration, time: TimeFloat) -> Self {
+    pub fn calculate(offset: Angle, orbital_period: Duration, time: TimeIndex) -> Self {
         let orbit_fraction = time / orbital_period;
         let angle = orbit_fraction * Angle::TAU + offset;
         Self(angle)
@@ -64,7 +64,7 @@ pub fn orbital_period(semi_major_axis: Length, parent_mass: Mass) -> Duration {
 
 #[inline]
 pub fn circular_orbit_distance(
-    time: TimeFloat,
+    time: TimeIndex,
     period: Duration,
     radius: Length,
     offset: Angle,
@@ -74,7 +74,7 @@ pub fn circular_orbit_distance(
 }
 
 #[inline]
-pub fn circular_orbit_angle(time: TimeFloat, period: Duration, offset: Angle) -> Angle {
+pub fn circular_orbit_angle(time: TimeIndex, period: Duration, offset: Angle) -> Angle {
     Angle::TAU * (time / period) + offset
 }
 

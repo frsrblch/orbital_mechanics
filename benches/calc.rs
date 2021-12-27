@@ -22,9 +22,9 @@ fn calc(criterion: &mut Criterion) {
 
     let circle = EllipticalOrbit::circular(Duration::in_s(1.0), Length::in_m(1.0), Angle::zero());
 
-    let t_a = TimeFloat::in_s(0.83);
-    let t_b = TimeFloat::in_s(0.87);
-    let t = TimeFloat::in_s(0.85);
+    let t_a = TimeIndex::in_s(0.83);
+    let t_b = TimeIndex::in_s(0.87);
+    let t = TimeIndex::in_s(0.85);
 
     let dt_inv = 1.0 / (t_b - t_a);
 

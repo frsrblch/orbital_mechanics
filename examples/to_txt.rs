@@ -1,5 +1,5 @@
 use orbital_mechanics::{Eccentricity, EllipticalOrbit};
-use physics_types::{Duration, Length, TimeFloat};
+use physics_types::{Duration, Length, TimeIndex};
 use std::io::Write;
 
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
     const N: usize = 1000;
     for n in 0..=N {
         let t = n as f64 / N as f64;
-        let t = TimeFloat::in_s(t);
+        let t = TimeIndex::in_s(t);
         let r = orbit.radius(t);
         writeln!(&mut file, "{}\t{}", t.value.value, r.value).unwrap();
     }

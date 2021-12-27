@@ -1,7 +1,7 @@
 use crate::calc::*;
 use ::pga::{line, motor, origin, point, Bivector, Motor};
 use physics_types::{
-    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Spherical, Squared, TimeFloat,
+    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Spherical, Squared, TimeIndex,
 };
 
 pub mod calc;
@@ -40,7 +40,7 @@ impl Rotation {
         }
     }
 
-    pub fn get_motor(&self, time: TimeFloat) -> Motor {
+    pub fn get_motor(&self, time: TimeIndex) -> Motor {
         let rotations = self.sidereal_speed * time.value;
         motor(self.axis, 0.0, rotations.value)
     }
@@ -93,12 +93,12 @@ impl EllipticalOrbit {
     }
 
     #[inline]
-    pub fn distance(&self, time: TimeFloat) -> Distance {
+    pub fn distance(&self, time: TimeIndex) -> Distance {
         self.polar(time).euclidean()
     }
 
     #[inline]
-    pub fn polar(&self, time: TimeFloat) -> Polar<Length> {
+    pub fn polar(&self, time: TimeIndex) -> Polar<Length> {
         if self.is_circular() {
             let angle = circular_orbit_angle(time, self.period, self.offset);
             let radius = self.semi_major_axis;
@@ -121,7 +121,7 @@ impl EllipticalOrbit {
     }
 
     #[inline]
-    pub fn radius(&self, time: TimeFloat) -> Length {
+    pub fn radius(&self, time: TimeIndex) -> Length {
         if self.is_circular() {
             self.semi_major_axis
         } else {
@@ -132,7 +132,7 @@ impl EllipticalOrbit {
     }
 
     #[inline]
-    pub fn angle(&self, time: TimeFloat) -> Angle {
+    pub fn angle(&self, time: TimeIndex) -> Angle {
         if self.is_circular() {
             circular_orbit_angle(time, self.period, self.offset)
         } else {
@@ -142,7 +142,7 @@ impl EllipticalOrbit {
     }
 
     #[inline]
-    fn true_anomaly(&self, time: TimeFloat) -> TrueAnomaly {
+    fn true_anomaly(&self, time: TimeIndex) -> TrueAnomaly {
         let mean_anomaly = MeanAnomaly::calculate(self.offset, self.period, time);
         let eccentric_anomaly = EccentricAnomaly::calculate(mean_anomaly, self.eccentricity);
         TrueAnomaly::calculate(eccentric_anomaly, self.eccentricity)
@@ -172,7 +172,7 @@ impl CircularOrbit {
     }
 
     #[inline]
-    pub fn distance(&self, time: TimeFloat) -> Distance {
+    pub fn distance(&self, time: TimeIndex) -> Distance {
         circular_orbit_distance(time, self.period, self.radius, self.offset)
     }
 }
