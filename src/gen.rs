@@ -11,7 +11,7 @@ impl Distribution<EllipticalOrbit> for OrbitGenerator {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> EllipticalOrbit {
         let semi_major_axis = self.semi_major_axis.get();
         self.semi_major_axis
-            .set(self.semi_major_axis.get() * rng.gen_range(1.3..2.0));
+            .set(semi_major_axis * rng.gen_range(1.3..2.0));
 
         EllipticalOrbit::new(
             self.stellar_mass,
