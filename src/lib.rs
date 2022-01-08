@@ -1,8 +1,8 @@
 use crate::calc::*;
 use ::pga::{line, motor, origin, point, Bivector, Motor};
-use physics_types::{
-    Angle, AngularSpeed, Distance, Duration, Length, Mass, Polar, Spherical, Squared, TimeIndex,
-};
+use physics_types::*;
+use rand::distributions::{Distribution, Standard};
+use rand::Rng;
 
 pub mod calc;
 pub mod gen;
@@ -180,12 +180,25 @@ impl CircularOrbit {
 #[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Eccentricity(f64);
 
+impl Distribution<Eccentricity> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Eccentricity {
+        const POW: f64 = 3.0;
+        let min = -0.1_f64.powf(1. / POW);
+        let max = 0.25_f64.powf(1. / POW);
+        let range = min..max;
+        let e = rng.gen_range(range).abs().powf(POW);
+        Eccentricity::new(e)
+    }
+}
+
 impl Eccentricity {
     pub fn new(value: f64) -> Self {
         // I don't know whether these equations work for high eccentricities
-        if !(0.0..0.9).contains(&value) {
-            panic!("Invalid eccentricity: {}", value);
-        }
+        assert!(
+            (0.0..0.9_).contains(&value),
+            "Invalid eccentricity: {}",
+            value
+        );
 
         Eccentricity(value)
     }
