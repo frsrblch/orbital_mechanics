@@ -15,7 +15,8 @@ impl MeanAnomaly {
 pub struct EccentricAnomaly(pub Angle);
 
 impl EccentricAnomaly {
-    const ITERATION_COUNT: u8 = 3;
+    // more than two iteration steps does not improve the accuracy
+    const ITERATION_COUNT: usize = 2;
 
     pub fn calculate(mean_anomaly: MeanAnomaly, eccentricity: Eccentricity) -> Self {
         // set E_0 to an appropriate initial value
